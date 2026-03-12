@@ -1,11 +1,14 @@
 package handler
 
 import (
+	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/hynor/nshellserver/internal/logging"
 	"golang.org/x/time/rate"
 )
 
@@ -14,6 +17,7 @@ type RateLimiter struct {
 	mu       sync.Mutex
 	visitors map[string]*visitorEntry
 	authFail map[string]*authFailEntry
+	logger   *slog.Logger
 }
 
 type visitorEntry struct {
@@ -36,10 +40,14 @@ const (
 	cleanupInterval = 5 * time.Minute
 )
 
-func NewRateLimiter() *RateLimiter {
+func NewRateLimiter(logger *slog.Logger) *RateLimiter {
+	if logger == nil {
+		logger = logging.NewLogger(io.Discard, "info")
+	}
 	rl := &RateLimiter{
 		visitors: make(map[string]*visitorEntry),
 		authFail: make(map[string]*authFailEntry),
+		logger:   logger,
 	}
 	go rl.cleanupLoop()
 	return rl
@@ -99,6 +107,7 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 		ip := clientIP(r.RemoteAddr)
 		limiter := rl.getVisitor(ip)
 		if !limiter.Allow() {
+			rl.logger.Warn("rate limit exceeded", "client_ip", ip, "path", r.URL.Path, "method", r.Method)
 			w.Header().Set("Retry-After", "60")
 			writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
 			return

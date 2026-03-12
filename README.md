@@ -32,13 +32,19 @@ openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem \
 ### 启动
 
 ```bash
-./nshellserver --cert cert.pem --key key.pem
+./nshellserver serve --cert cert.pem --key key.pem
+```
+
+默认日志级别是 `info`。需要查看更多接入和请求细节时，可以显式开启 `debug`：
+
+```bash
+./nshellserver serve --cert cert.pem --key key.pem --log-level debug
 ```
 
 开发模式也可以直接运行：
 
 ```bash
-./nshellserver --dev
+./nshellserver serve --dev
 ```
 
 `--dev` 会在当前运行目录查找 `nshell-key.pem` 和 `nshell-crt.pem`。如果两个文件都不存在，程序会直接调用系统 `openssl` 生成并复用这对自签名证书；如果只存在其中一个，则启动失败。`--dev` 不能与 `--cert` 或 `--key` 混用。
@@ -46,7 +52,7 @@ openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem \
 自托管并由外部反向代理终止 HTTPS 时，可以直接监听 HTTP：
 
 ```bash
-./nshellserver --self-host
+./nshellserver serve --self-host
 ```
 
 这会强制服务监听 `127.0.0.1`，不加载证书，适合只让本机反向代理转发。
@@ -54,10 +60,12 @@ openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem \
 如果确实需要直接对外暴露 HTTP 监听，可以显式运行：
 
 ```bash
-./nshellserver --self-host --public
+./nshellserver serve --self-host --public
 ```
 
 这会打印不安全警告，并把监听地址强制改为 `0.0.0.0`。`--public` 只能与 `--self-host` 一起使用。`--self-host` 不能与 `--cert`、`--key` 或 `--dev` 混用。
+
+直接执行 `./nshellserver` 只会显示帮助信息；旧用法 `./nshellserver --dev` 不再支持。
 
 ### 配置项
 
@@ -70,8 +78,11 @@ openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem \
 | `--cert` | `NSHELL_CERT` | （必填） | TLS 证书文件 |
 | `--key` | `NSHELL_KEY` | （必填） | TLS 私钥文件 |
 | `--db` | `NSHELL_DB` | `./nshell.db` | SQLite 数据库路径 |
+| `--log-level` | `NSHELL_LOG_LEVEL` | `info` | 日志级别：`error`、`warning`、`info`、`debug` |
 
-CLI 参数优先于环境变量。
+CLI 参数优先于环境变量。以上参数均属于 `serve` 子命令，例如 `./nshellserver serve --addr :9443 --dev`。
+
+当 `--log-level` 或 `NSHELL_LOG_LEVEL` 的值非法时，程序会回退到 `info`，并打印一条 `warning` 日志提示。
 
 ### 验证
 
@@ -92,9 +103,12 @@ curl -k -X POST https://localhost:8443/api/v1/sync/workspace/status \
 
 ```
 server/
-├── main.go                        # 入口：CLI、TLS server、路由、graceful shutdown
+├── main.go                        # 入口：执行 cobra 根命令
+├── cmd/
+│   ├── root.go                    # 根命令与帮助行为
+│   └── serve.go                   # serve 子命令与 flag 绑定
 ├── internal/
-│   ├── config/config.go           # 配置加载
+│   ├── config/config.go           # 配置默认值与环境变量补全
 │   ├── db/
 │   │   ├── db.go                  # SQLite 连接、pragma、迁移
 │   │   └── store.go               # 数据层 CRUD
@@ -106,13 +120,15 @@ server/
 │   │   ├── connection.go         # connections upsert/delete
 │   │   ├── sshkey.go             # ssh-keys upsert/delete
 │   │   └── proxy.go              # proxies upsert/delete
-│   └── model/model.go            # 请求/响应结构体
+│   ├── model/model.go            # 请求/响应结构体
+│   └── server/server.go          # 服务启动、TLS/self-host、graceful shutdown
 ```
 
 ## 依赖
 
 | 包 | 用途 |
 |---|---|
+| `github.com/spf13/cobra` | CLI 命令树与参数管理 |
 | `github.com/go-chi/chi/v5` | HTTP 路由 |
 | `modernc.org/sqlite` | CGO-free SQLite 驱动 |
 | `golang.org/x/crypto` | bcrypt 密码哈希 |

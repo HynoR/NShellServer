@@ -12,9 +12,12 @@ func (h *Handler) WorkspaceStatus(w http.ResponseWriter, r *http.Request) {
 
 	version, err := h.Store.GetVersion(ws)
 	if err != nil {
+		h.logError(r, ws, "failed to get workspace version", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to get workspace version")
 		return
 	}
+
+	h.logInfo(r, ws, "workspace status checked", "version", version)
 
 	writeJSON(w, http.StatusOK, model.WorkspaceStatusResponse{
 		OK:         true,
