@@ -21,8 +21,9 @@ import (
 func main() {
 	cfg := config.Load()
 
-	if cfg.CertFile == "" || cfg.KeyFile == "" {
-		fmt.Fprintln(os.Stderr, "error: --cert and --key are required")
+	mode, err := prepareServerMode(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -52,26 +53,38 @@ func main() {
 		r.Post("/proxies/delete", h.DeleteProxy)
 	})
 
-	cert, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
-	if err != nil {
-		log.Fatalf("failed to load TLS cert/key: %v", err)
-	}
-
 	srv := &http.Server{
-		Addr:    cfg.Addr,
-		Handler: r,
-		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{cert},
-		},
+		Addr:              cfg.Addr,
+		Handler:           r,
 		ReadHeaderTimeout: 10 * time.Second,
+	}
+	if mode.useTLS {
+		cert, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
+		if err != nil {
+			log.Fatalf("failed to load TLS cert/key: %v", err)
+		}
+		srv.TLSConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+		}
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	go func() {
-		log.Printf("listening on %s (TLS)", cfg.Addr)
-		if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+		if mode.warning != "" {
+			log.Print(mode.warning)
+		}
+
+		var err error
+		if mode.useTLS {
+			log.Printf("listening on %s (TLS)", cfg.Addr)
+			err = srv.ListenAndServeTLS("", "")
+		} else {
+			log.Printf("listening on %s (HTTP)", cfg.Addr)
+			err = srv.ListenAndServe()
+		}
+		if err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server error: %v", err)
 		}
 	}()
