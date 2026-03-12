@@ -13,12 +13,14 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 
 	var req model.PullRequest
 	if err := decodeJSON(r, &req); err != nil {
+		h.logWarning(r, ws, "invalid pull request body")
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	snap, version, err := h.Store.PullSnapshot(ws)
 	if err != nil {
+		h.logError(r, ws, "failed to pull snapshot", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to pull snapshot")
 		return
 	}
@@ -26,6 +28,7 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 
 	if req.KnownVersion == version {
+		h.logInfo(r, ws, "pull completed", "known_version", req.KnownVersion, "server_version", version, "unchanged", true)
 		writeJSON(w, http.StatusOK, model.PullResponse{
 			OK:         true,
 			Workspace:  ws,
@@ -35,6 +38,8 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	h.logInfo(r, ws, "pull completed", "known_version", req.KnownVersion, "server_version", version, "unchanged", false)
 
 	writeJSON(w, http.StatusOK, model.PullResponse{
 		OK:         true,

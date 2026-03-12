@@ -2,18 +2,25 @@ package handler
 
 import (
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/hynor/nshellserver/internal/db"
+	"github.com/hynor/nshellserver/internal/logging"
 )
 
 type Handler struct {
 	Store       *db.Store
 	RateLimiter *RateLimiter
+	Logger      *slog.Logger
 }
 
-func New(store *db.Store) *Handler {
-	return &Handler{Store: store, RateLimiter: NewRateLimiter()}
+func New(store *db.Store, logger *slog.Logger) *Handler {
+	if logger == nil {
+		logger = logging.NewLogger(io.Discard, "info")
+	}
+	return &Handler{Store: store, RateLimiter: NewRateLimiter(logger), Logger: logger}
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
