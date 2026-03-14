@@ -107,7 +107,7 @@ func newTestHandler(t *testing.T) *Handler {
 	if err := store.EnsureWorkspace("alice", strongWorkspacePassword); err != nil {
 		t.Fatalf("ensure workspace: %v", err)
 	}
-	return New(store)
+	return New(store, nil)
 }
 
 func withWorkspace(r *http.Request, workspace string) *http.Request {

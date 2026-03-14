@@ -72,7 +72,7 @@ func TestAuthMiddlewareLocksWorkspaceAfterRepeatedFailures(t *testing.T) {
 }
 
 func TestRateLimiterUsesClientIPNotEphemeralPort(t *testing.T) {
-	limiter := NewRateLimiter()
+	limiter := NewRateLimiter(nil)
 	handler := limiter.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -116,5 +116,5 @@ func newMiddlewareTestHandler(t *testing.T) *Handler {
 	if err := store.EnsureWorkspace("alice", strongWorkspacePassword); err != nil {
 		t.Fatalf("ensure workspace: %v", err)
 	}
-	return New(store)
+	return New(store, nil)
 }
