@@ -73,6 +73,14 @@ func Run(cfg *config.Config, logger *slog.Logger) error {
 		r.Post("/proxies/delete", h.DeleteProxy)
 	})
 
+	r.Route("/api/v2/workspaces", func(r chi.Router) {
+		r.Use(h.V2AuthMiddleware)
+		r.Use(h.RequestLogger)
+		r.Post("/resolve", h.V2Resolve)
+		r.Post("/pull", h.V2Pull)
+		r.Post("/push", h.V2Push)
+	})
+
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           r,

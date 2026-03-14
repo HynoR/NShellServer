@@ -83,6 +83,46 @@ CREATE TABLE IF NOT EXISTS deleted_tombstones (
     PRIMARY KEY (workspace_name, resource_type, resource_id),
     FOREIGN KEY (workspace_name) REFERENCES workspaces(workspace_name)
 );
+
+-- v2 tables (independent from v1)
+
+CREATE TABLE IF NOT EXISTS v2_workspaces (
+    workspace_name TEXT PRIMARY KEY,
+    password_hash  TEXT NOT NULL,
+    version        INTEGER NOT NULL DEFAULT 0,
+    created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS v2_servers (
+    workspace_name TEXT NOT NULL,
+    uuid           TEXT NOT NULL,
+    payload_json   TEXT NOT NULL,
+    revision       INTEGER NOT NULL DEFAULT 0,
+    updated_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (workspace_name, uuid),
+    FOREIGN KEY (workspace_name) REFERENCES v2_workspaces(workspace_name)
+);
+
+CREATE TABLE IF NOT EXISTS v2_ssh_keys (
+    workspace_name TEXT NOT NULL,
+    uuid           TEXT NOT NULL,
+    payload_json   TEXT NOT NULL,
+    revision       INTEGER NOT NULL DEFAULT 0,
+    updated_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (workspace_name, uuid),
+    FOREIGN KEY (workspace_name) REFERENCES v2_workspaces(workspace_name)
+);
+
+CREATE TABLE IF NOT EXISTS v2_deleted_tombstones (
+    workspace_name  TEXT NOT NULL,
+    resource_type   TEXT NOT NULL,
+    resource_uuid   TEXT NOT NULL,
+    revision        INTEGER NOT NULL DEFAULT 0,
+    deleted_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (workspace_name, resource_type, resource_uuid),
+    FOREIGN KEY (workspace_name) REFERENCES v2_workspaces(workspace_name)
+);
 `
 	if _, err := db.Exec(ddl); err != nil {
 		return err
