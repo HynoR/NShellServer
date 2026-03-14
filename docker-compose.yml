@@ -1,9 +1,12 @@
+# ===== TLS mode (direct HTTPS with your own cert/key) =====
 services:
   nshellserver:
     build:
       context: .
       dockerfile: Dockerfile
-    image: nshellserver:latest
+    # To use the pre-built image from ghcr.io instead of building locally,
+    # comment out `build:` above and uncomment the line below:
+    # image: ghcr.io/hynor/nshellserver:latest
     container_name: nshellserver
     restart: unless-stopped
     ports:
@@ -18,6 +21,27 @@ services:
       - ./certs:/certs:ro
       # SQLite database persistence
       - nshell_data:/data
+    command: ["serve"]
+
+# ===== Self-host mode (plain HTTP behind a reverse proxy) =====
+# Uncomment the block below and comment out the service above to run
+# behind nginx/Caddy/Traefik that terminates TLS for you.
+#
+#  nshellserver:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#    # image: ghcr.io/hynor/nshellserver:latest
+#    container_name: nshellserver
+#    restart: unless-stopped
+#    ports:
+#      - "127.0.0.1:8080:8080"
+#    environment:
+#      NSHELL_ADDR: ":8080"
+#      NSHELL_DB:   "/data/nshell.db"
+#    volumes:
+#      - nshell_data:/data
+#    command: ["serve", "--self-host"]
 
 volumes:
   nshell_data:

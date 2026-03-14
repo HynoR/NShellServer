@@ -1,5 +1,10 @@
 # ---- build stage ----
-FROM golang:1.26-alpine AS builder
+# --platform=$BUILDPLATFORM runs the build on the native arch (no QEMU),
+# then cross-compiles via GOOS/GOARCH for the target.
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
+
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /app
 
@@ -10,7 +15,7 @@ RUN go mod download
 COPY . .
 
 # CGO_ENABLED=0: modernc.org/sqlite is pure-Go, no cgo needed
-RUN CGO_ENABLED=0 go build \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
       -trimpath \
       -ldflags "-s -w" \
       -o nshellserver \
